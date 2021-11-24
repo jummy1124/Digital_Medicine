@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from collections import Counter
 from sklearn.metrics import accuracy_score
 from torchvision import transforms
 from sklearn.metrics import f1_score
@@ -24,7 +25,7 @@ df=pd.read_csv('./data/data_info.csv')
 
 for i in range(df.shape[0]):
     # print('./data/train/images/'+str(df['FileID'][i])+'.jpg')
-    img= cv2.imread('./data/train/images/'+str(df['FileID'][i])+'.jpg')
+    img= cv2.imread('./data/train/he_image/'+str(df['FileID'][i])+'.jpg')
     img=img/img.max()
     image[i]=torch.from_numpy(np.transpose(img,(2,0,1)))
     if df['Negative'][i]==1:
@@ -43,7 +44,7 @@ cnt=0
 for child in model.children(): 
     cnt+=1
     for param in child.parameters():
-        if cnt<8:
+        if cnt<5:
             param.requires_grad = False
 
 
@@ -59,7 +60,9 @@ if torch.cuda.is_available():
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)   # optimize all cnn parameters
 loss_func = nn.CrossEntropyLoss() 
 
-X_train, X_test, y_train, y_test = train_test_split(input_tensor,label , test_size=0.3, random_state=17)
+X_train, X_test, y_train, y_test = train_test_split(input_tensor,label , test_size=0.2, random_state=16)
+c = Counter(y_test)
+print(c.most_common())
 
 batch_size=10
 def evaluate(model):
@@ -121,12 +124,12 @@ for epoch in range(epochs):  # loop over the dataset multiple times
         f1+=f1_score(labels_, np.argmax(outputs_,axis=-1), average='macro')
     test_f1,testing_loss=evaluate(model)
 
-    print("Train loss:" , round(running_loss/X_train.shape[0],4) , ", Train f1 score:" , round(f1/X_train.shape[0],4) ,
+    print("Train loss:" , round(running_loss/(X_train.shape[0]/batch_size),4) , ", Train f1 score:" , round(f1/(X_train.shape[0]/batch_size),4) ,
           ", Test loss:" , round(testing_loss,4) , ", Test f1 score:" , round(test_f1,4))
     # result[0,epoch]=round(running_loss/X_train.shape[0],4)
     # result[1,epoch]=round(f1/X_train.shape[0],4)
     # result[2,epoch]=round(testing_loss,4)
     # result[3,epoch]=round(test_f1,4)
-    if test_f1>0.55  :
+    if test_f1>0.55 and  epoch>15:
         torch.save(model.state_dict(), './resnet18.pth')
         break
